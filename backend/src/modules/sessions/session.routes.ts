@@ -10,12 +10,17 @@ import { parseStartTime } from "./datetime";
 
 export const sessionRouter = Router();
 
+/** 快速识别"日期+时分"的整体形状，用于给出缺少时分的明确错误 */
+const DATE_TIME_SHAPE = /^\d{4}-\d{1,2}-\d{1,2}[T ]\d{1,2}:\d{2}/;
+
 const startTimeValidation = body("startTime")
   .isString()
   .withMessage("开局时间必须是字符串")
   .trim()
   .notEmpty()
   .withMessage("开局时间不能为空")
+  .custom((value) => DATE_TIME_SHAPE.test(value))
+  .withMessage("开局时间必须同时包含年月日和时分（如 2026-10-01 19:30）")
   .custom((value) => !Number.isNaN(parseStartTime(value)))
   .withMessage("开局时间必须是合法的日期时间")
   .custom((value) => parseStartTime(value) >= Date.now())

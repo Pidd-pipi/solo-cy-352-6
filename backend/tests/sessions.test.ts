@@ -285,6 +285,35 @@ test("非法日期：不存在的日期、任意文字、过去时间一律 400 
   );
 });
 
+test("日期时间完整性：只填日期或缺少时分一律拒绝，空格与 T 分隔均可", async () => {
+  const before = (await api("GET", "/sessions")).body.sessions.length as number;
+  const future = new Date(Date.now() + 48 * 3_600_000);
+  const pad = (num: number) => String(num).padStart(2, "0");
+  const datePart = `${future.getFullYear()}-${pad(future.getMonth() + 1)}-${pad(future.getDate())}`;
+  const timePart = `${pad(future.getHours())}:${pad(future.getMinutes())}`;
+
+  const incomplete: Array<[string, string]> = [
+    [datePart, "只填日期"],
+    [`${datePart}T`, "只有分隔符没有时分"],
+    [`${datePart} ${pad(future.getHours())}`, "缺少分钟"],
+  ];
+  for (const [startTime, label] of incomplete) {
+    const { status } = await api("POST", "/sessions", makePayload({ startTime }));
+    invariant(status === 400, `${label}必须被拒绝（400），实际 ${status}（输入 ${startTime}）`);
+  }
+
+  for (const [startTime, label] of [
+    [`${datePart} ${timePart}`, "空格分隔"],
+    [`${datePart}T${timePart}`, "字母 T 分隔"],
+  ] as Array<[string, string]>) {
+    const { status, body } = await api("POST", "/sessions", makePayload({ startTime }));
+    invariant(status === 201, `${label}的完整日期时间必须可创建，实际 ${status}：${JSON.stringify(body)}`);
+  }
+
+  const after = (await api("GET", "/sessions")).body.sessions.length as number;
+  invariant(after === before + 2, `不完整时间不得写入列表：之前 ${before} 条，之后应只多 2 条，实际 ${after} 条`);
+});
+
 test("并发报名：正式名单绝不超过上限，玩家不丢失不重复", async () => {
   const maxPlayers = 3;
   const session = await mustCreate({ maxPlayers });

@@ -1,5 +1,5 @@
 const START_TIME_PATTERN =
-  /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2})(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})?)?$/;
+  /^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})(?::(\d{2})(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})?$/;
 
 function isLeapYear(year: number): boolean {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
@@ -10,7 +10,9 @@ function daysInMonth(year: number, month: number): number {
 }
 
 /**
- * 解析开局时间：仅接受 ISO 8601（日期与时间之间允许空格分隔）。
+ * 解析开局时间：仅接受 ISO 8601（日期与时间之间允许空格或字母 T 分隔）。
+ * 必须同时包含年月日和时分——只填日期、缺少时分的输入一律拒绝，
+ * 不允许默认按零点处理。
  * 年月日必须在日历上真实存在（拒绝 2 月 30 日、平年 2 月 29 日、
  * 小月 31 日等越界输入），不允许解析引擎把越界日期推后到其他日期。
  * 无法解析时返回 NaN。
@@ -28,8 +30,8 @@ export function parseStartTime(value: unknown): number {
   const year = Number(yearText);
   const month = Number(monthText);
   const day = Number(dayText);
-  const hour = hourText === undefined ? 0 : Number(hourText);
-  const minute = minuteText === undefined ? 0 : Number(minuteText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
   const second = secondText === undefined ? 0 : Number(secondText);
 
   if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) {
