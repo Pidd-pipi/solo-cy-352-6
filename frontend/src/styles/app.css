@@ -119,6 +119,142 @@ body {
   margin-top: 26px;
 }
 
+.plaza-panel {
+  margin-top: 26px;
+}
+
+.plaza-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.plaza-header h2 {
+  margin: 0 0 8px;
+}
+
+.plaza-subtitle {
+  margin: 0;
+  color: color-mix(in srgb, #19212e 72%, #3268b8 28%);
+  line-height: 1.65;
+}
+
+.nickname-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  font-weight: 700;
+}
+
+.session-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  min-height: 80px;
+}
+
+.session-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: 1px solid color-mix(in srgb, #19212e 13%, transparent);
+  border-radius: 8px;
+  padding: 18px;
+  background: color-mix(in srgb, #f4f7fb 92%, white 8%);
+}
+
+.session-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.session-card-header h3 {
+  margin: 0 0 6px;
+}
+
+.session-meta {
+  margin: 2px 0;
+  font-size: 13px;
+  color: color-mix(in srgb, #19212e 68%, #3268b8 32%);
+}
+
+.session-counts {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pill-warm {
+  background: color-mix(in srgb, #cf5c36 16%, transparent);
+}
+
+.session-roster {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.roster-block {
+  border: 1px dashed color-mix(in srgb, #19212e 18%, transparent);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.roster-block strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.roster-list {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.9;
+}
+
+.roster-list em {
+  font-style: normal;
+  color: color-mix(in srgb, #19212e 55%, #3268b8 45%);
+  font-size: 12px;
+}
+
+.waitlist-order {
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #cf5c36;
+}
+
+.roster-empty {
+  margin: 0;
+  color: color-mix(in srgb, #19212e 45%, transparent);
+  font-size: 13px;
+}
+
+.session-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.session-actions .el-button:only-child {
+  margin-left: auto;
+}
+
+.placement-note {
+  font-size: 13px;
+  font-weight: 700;
+  color: color-mix(in srgb, #19212e 72%, #3268b8 28%);
+}
+
 .plain-table {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, #19212e 12%, transparent);
@@ -163,6 +299,10 @@ body {
   }
 
   .plain-row {
+    grid-template-columns: 1fr;
+  }
+
+  .session-roster {
     grid-template-columns: 1fr;
   }
 }
