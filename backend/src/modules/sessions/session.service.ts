@@ -20,6 +20,11 @@ function toView(session: GameSession): GameSessionView {
   };
 }
 
+/** 昵称按大小写不敏感识别同一玩家 */
+function nameKey(player: string): string {
+  return player.toLowerCase();
+}
+
 export class SessionService {
   listSessions(): GameSessionView[] {
     return sessionStore.list().map(toView);
@@ -44,7 +49,11 @@ export class SessionService {
 
   joinSession(id: string, player: string): JoinSessionResult {
     const session = this.mustFind(id);
-    if (session.participants.includes(player) || session.waitlist.includes(player)) {
+    const key = nameKey(player);
+    const alreadyJoined =
+      session.participants.some((name) => nameKey(name) === key) ||
+      session.waitlist.some((name) => nameKey(name) === key);
+    if (alreadyJoined) {
       throw new AppError(409, `玩家「${player}」已报名，不能重复报名`);
     }
 
@@ -61,8 +70,9 @@ export class SessionService {
 
   leaveSession(id: string, player: string): LeaveSessionResult {
     const session = this.mustFind(id);
+    const key = nameKey(player);
 
-    const participantIndex = session.participants.indexOf(player);
+    const participantIndex = session.participants.findIndex((name) => nameKey(name) === key);
     if (participantIndex >= 0) {
       session.participants.splice(participantIndex, 1);
       // 正式名单出现空位时，按候补先后顺序自动补位
@@ -73,7 +83,7 @@ export class SessionService {
       return { session: toView(session), removed: "confirmed", promoted };
     }
 
-    const waitlistIndex = session.waitlist.indexOf(player);
+    const waitlistIndex = session.waitlist.findIndex((name) => nameKey(name) === key);
     if (waitlistIndex >= 0) {
       session.waitlist.splice(waitlistIndex, 1);
       return { session: toView(session), removed: "waitlisted", promoted: null };

@@ -83,21 +83,22 @@ async function submitCreate() {
 }
 
 function myPlacement(session: GameSession): "confirmed" | "waitlisted" | null {
-  const name = trimmedNickname.value;
+  const name = trimmedNickname.value.toLowerCase();
   if (!name) {
     return null;
   }
-  if (session.participants.includes(name)) {
+  if (session.participants.some((player) => player.toLowerCase() === name)) {
     return "confirmed";
   }
-  if (session.waitlist.includes(name)) {
+  if (session.waitlist.some((player) => player.toLowerCase() === name)) {
     return "waitlisted";
   }
   return null;
 }
 
 function waitlistPosition(session: GameSession, player: string): number {
-  return session.waitlist.indexOf(player) + 1;
+  const key = player.toLowerCase();
+  return session.waitlist.findIndex((name) => name.toLowerCase() === key) + 1;
 }
 
 async function handleJoin(session: GameSession) {
