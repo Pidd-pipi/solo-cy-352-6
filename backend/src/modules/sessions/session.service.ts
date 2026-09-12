@@ -65,6 +65,7 @@ export class SessionService {
       session.waitlist.push(player);
       placement = "waitlisted";
     }
+    sessionStore.save();
     return { session: toView(session), placement };
   }
 
@@ -80,12 +81,14 @@ export class SessionService {
       if (promoted !== null) {
         session.participants.push(promoted);
       }
+      sessionStore.save();
       return { session: toView(session), removed: "confirmed", promoted };
     }
 
     const waitlistIndex = session.waitlist.findIndex((name) => nameKey(name) === key);
     if (waitlistIndex >= 0) {
       session.waitlist.splice(waitlistIndex, 1);
+      sessionStore.save();
       return { session: toView(session), removed: "waitlisted", promoted: null };
     }
 

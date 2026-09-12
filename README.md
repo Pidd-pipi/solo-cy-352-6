@@ -75,6 +75,7 @@ npm run dev
 | DB_PASSWORD | 数据库密码 | app_pwd |
 | DB_ROOT_PASSWORD | 数据库 root 密码 | root_pwd |
 | JWT_SECRET | JWT 签名密钥 | change_me_to_a_long_random_string |
+| SESSIONS_DATA_FILE | 组局数据快照文件路径（容器内） | /app/data/sessions.json |
 | FRONTEND_PORT | 前端宿主机端口 | 28512 |
 | BACKEND_PORT | 后端宿主机端口 | 29512 |
 | DB_PORT | 数据库宿主机端口 | 27017 |
@@ -84,6 +85,7 @@ npm run dev
 - 使用 `docker compose up -d` 启动，不需要额外传入 `-p`。
 - `docker-compose.yml` 顶层已声明 `name: lpboardgame`，并且 `.env` 包含 `COMPOSE_PROJECT_NAME=lpboardgame`，可在中文目录名下启动。
 - 数据库数据保存在命名卷 `db_data` 中，不依赖当前目录名。
+- 组局与报名数据以 JSON 快照形式保存在命名卷 `backend_data`（容器内 `/app/data/sessions.json`）中，服务重启后自动恢复。
 - 前端容器由 Nginx 托管静态资源，并把 `/api/` 反向代理到 `backend:29512`。
 - 若本地端口冲突，可修改 `.env` 中的 `FRONTEND_PORT`、`BACKEND_PORT`、`DB_PORT`。
 

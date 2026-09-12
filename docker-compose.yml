@@ -34,8 +34,11 @@ services:
       DATABASE_URL: mongodb://${DB_USER}:${DB_PASSWORD}@db:27017/${DB_NAME}?authSource=admin
       SPRING_DATASOURCE_URL: 
       SPRING_DATASOURCE_DRIVER: 
-      SPRING_JPA_DATABASE_PLATFORM: 
+      SPRING_JPA_DATABASE_PLATFORM:
       JWT_SECRET: ${JWT_SECRET}
+      SESSIONS_DATA_FILE: /app/data/sessions.json
+    volumes:
+      - backend_data:/app/data
     ports:
       - "${BACKEND_PORT:-29512}:29512"
     depends_on:
@@ -59,3 +62,4 @@ services:
 
 volumes:
   db_data:
+  backend_data:

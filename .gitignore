@@ -7,6 +7,7 @@ dist/
 .vscode/
 frontend/dist/
 backend/dist/
+backend/data/
 coverage/
 .pytest_cache/
 *.class

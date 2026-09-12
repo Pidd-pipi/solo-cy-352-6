@@ -1,7 +1,16 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import type { Server } from "node:http";
+import { spawn, type ChildProcess } from "node:child_process";
+import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+
+// 测试进程使用独立的临时数据文件，避免污染开发/生产数据
+process.env.SESSIONS_DATA_FILE = join(tmpdir(), `sessions-test-${process.pid}.json`);
+rmSync(process.env.SESSIONS_DATA_FILE, { force: true });
+
 import { app } from "../src/app";
 
 /**
@@ -43,6 +52,7 @@ after(async () => {
   await new Promise<void>((resolve, reject) => {
     server.close((error) => (error ? reject(error) : resolve()));
   });
+  rmSync(process.env.SESSIONS_DATA_FILE as string, { force: true });
 });
 
 function invariant(condition: unknown, description: string): asserts condition {
@@ -347,4 +357,147 @@ test("并发报名：正式名单绝不超过上限，玩家不丢失不重复",
     players.every((player) => all.includes(player)),
     "并发报名下任何玩家都不得丢失",
   );
+});
+
+async function freePort(): Promise<number> {
+  const probe = createServer();
+  await new Promise<void>((resolve) => probe.listen(0, "127.0.0.1", resolve));
+  const { port } = probe.address() as AddressInfo;
+  await new Promise<void>((resolve) => probe.close(() => resolve()));
+  return port;
+}
+
+async function waitForHealth(port: number, timeoutMs = 30_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/health`);
+      if (response.ok) {
+        return;
+      }
+    } catch {
+      // 服务尚未就绪，继续等待
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  throw new Error(`等待服务启动超时（端口 ${port}）`);
+}
+
+function startServerProcess(port: number, dataFile: string): ChildProcess {
+  return spawn("node", ["--import", "tsx", "src/index.ts"], {
+    cwd: join(__dirname, ".."),
+    env: { ...process.env, PORT: String(port), SESSIONS_DATA_FILE: dataFile },
+    stdio: "ignore",
+  });
+}
+
+function stopServerProcess(child: ChildProcess): Promise<void> {
+  return new Promise((resolve) => {
+    child.once("exit", () => resolve());
+    child.kill("SIGTERM");
+  });
+}
+
+test("重启持久化：重启后组局与名单一致，重复报名与非法日期仍被拒绝", async (t) => {
+  const dataFile = join(tmpdir(), `sessions-restart-${process.pid}.json`);
+  rmSync(dataFile, { force: true });
+  const port = await freePort();
+  const restartBase = `http://127.0.0.1:${port}/api`;
+  let child = startServerProcess(port, dataFile);
+  t.after(() => {
+    if (child.exitCode === null && !child.killed) {
+      child.kill("SIGTERM");
+    }
+    rmSync(dataFile, { force: true });
+    rmSync(`${dataFile}.tmp`, { force: true });
+  });
+
+  try {
+    await waitForHealth(port);
+
+    // 重启前：创建组局并制造「正式 2 人 + 候补 2 人」，再取消 1 人触发补位
+    const create = await fetch(`${restartBase}/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(makePayload({ title: "重启验证局", maxPlayers: 2 })),
+    });
+    invariant(create.status === 201, `重启前创建失败：${create.status}`);
+    const sessionId = ((await create.json()).session as SessionView).id;
+    for (const player of ["重启甲", "重启乙", "重启丙", "重启丁"]) {
+      await fetch(`${restartBase}/sessions/${sessionId}/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player }),
+      });
+    }
+    await fetch(`${restartBase}/sessions/${sessionId}/leave`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ player: "重启甲" }),
+    });
+    const beforeRestart = (
+      (await (await fetch(`${restartBase}/sessions`)).json()).sessions as SessionView[]
+    ).find((item) => item.id === sessionId);
+    invariant(beforeRestart, "重启前必须能读到已创建的组局");
+    invariant(
+      beforeRestart.participants.join(",") === "重启乙,重启丙" &&
+        beforeRestart.waitlist.join() === "重启丁",
+      "重启前补位结果必须正确（预备校验）",
+    );
+
+    // 杀掉服务并用同一数据文件重启
+    await stopServerProcess(child);
+    child = startServerProcess(port, dataFile);
+    await waitForHealth(port);
+
+    const afterRestart = (
+      (await (await fetch(`${restartBase}/sessions`)).json()).sessions as SessionView[]
+    ).find((item) => item.id === sessionId);
+    invariant(afterRestart, "重启后已创建的组局必须仍然存在");
+    invariant(
+      afterRestart.participants.join(",") === beforeRestart.participants.join(","),
+      `重启后正式名单必须与重启前一致，重启前 ${beforeRestart.participants.join(",")}，重启后 ${afterRestart.participants.join(",")}`,
+    );
+    invariant(
+      afterRestart.waitlist.join(",") === beforeRestart.waitlist.join(","),
+      `重启后候补队列必须与重启前一致，重启前 ${beforeRestart.waitlist.join(",")}，重启后 ${afterRestart.waitlist.join(",")}`,
+    );
+    invariant(
+      afterRestart.participantCount === beforeRestart.participantCount &&
+        afterRestart.waitlistCount === beforeRestart.waitlistCount &&
+        afterRestart.status === beforeRestart.status,
+      "重启后人数计数与状态必须与重启前一致",
+    );
+
+    // 重启后业务规则不变：候补顺序继续生效
+    const rejoin = await fetch(`${restartBase}/sessions/${sessionId}/leave`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ player: "重启乙" }),
+    });
+    invariant(
+      rejoin.status === 200 && (await rejoin.json()).promoted === "重启丁",
+      "重启后补位必须继续按候补先后顺序进行",
+    );
+
+    // 重启后重复报名仍被拒绝
+    const duplicate = await fetch(`${restartBase}/sessions/${sessionId}/join`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ player: "重启丙" }),
+    });
+    invariant(duplicate.status === 409, `重启后重复报名必须仍返回 409，实际 ${duplicate.status}`);
+
+    // 重启后非法日期仍被拒绝
+    const invalidDate = await fetch(`${restartBase}/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(makePayload({ startTime: "2027-02-30 10:00" })),
+    });
+    invariant(invalidDate.status === 400, `重启后非法日期必须仍返回 400，实际 ${invalidDate.status}`);
+  } finally {
+    if (child.exitCode === null && !child.killed) {
+      await stopServerProcess(child);
+    }
+  }
 });
