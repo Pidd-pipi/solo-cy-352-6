@@ -6,19 +6,9 @@ import {
   leaveSession,
   listSessions,
 } from "./session.controller";
+import { parseStartTime } from "./datetime";
 
 export const sessionRouter = Router();
-
-/**
- * 解析开局时间：接受 ISO 8601（日期与时间之间允许用空格分隔）。
- * 无法解析时返回 NaN。
- */
-function parseStartTime(value: unknown): number {
-  if (typeof value !== "string") {
-    return Number.NaN;
-  }
-  return Date.parse(value.trim().replace(/\s+/, "T"));
-}
 
 const startTimeValidation = body("startTime")
   .isString()
